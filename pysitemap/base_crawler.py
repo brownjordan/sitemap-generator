@@ -79,7 +79,10 @@ class Crawler:
             url, frag = urllib.parse.urldefrag(url)
             # JMB: EXTRACT NON-PATH PORTION OF ROOT URL TO COMPARE AGAINST
             root_path = urllib.parse.urlparse(self.rooturl).path
-            if (url.startswith(self.rooturl.replace(root_path, "")) and
+            root_url = self.rooturl
+            if root_path != "/":
+                root_url = self.rooturl.replace(root_path, "")
+            if (url.startswith(root_url) and
                     not any(exclude_part in url for exclude_part in self.exclude_urls) and
                     url not in self.busy and
                     url not in self.done and
