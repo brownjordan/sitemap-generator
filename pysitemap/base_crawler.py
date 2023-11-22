@@ -1,4 +1,5 @@
 import logging
+import time
 import asyncio
 import re
 import aiohttp
@@ -21,7 +22,8 @@ class Crawler:
     def __init__(
             self, rooturl: str, out_file: str, out_format: str = 'xml',
             maxtasks: int = 100, todo_queue_backend: Any = set, done_backend: Any = dict,
-            http_request_options: Optional[MutableMapping] = None
+            http_request_options: Optional[MutableMapping] = None,
+            delay = 0,
         ):
         """
         Crawler constructor
@@ -41,6 +43,7 @@ class Crawler:
         self.tasks = set()
         self.sem = asyncio.Semaphore(maxtasks)
         self.http_request_options = http_request_options or {}
+        self.delay = delay
 
         # connector stores cookies between requests and uses connection pool
         self.session = aiohttp.ClientSession()
@@ -74,7 +77,9 @@ class Crawler:
         for url, parenturl in urls:
             url = urllib.parse.urljoin(parenturl, url)
             url, frag = urllib.parse.urldefrag(url)
-            if (url.startswith(self.rooturl) and
+            # JMB: EXTRACT NON-PATH PORTION OF ROOT URL TO COMPARE AGAINST
+            root_path = urllib.parse.urlparse(self.rooturl).path
+            if (url.startswith(self.rooturl.replace(root_path, "")) and
                     not any(exclude_part in url for exclude_part in self.exclude_urls) and
                     url not in self.busy and
                     url not in self.done and
@@ -104,6 +109,9 @@ class Crawler:
         self.busy.add(url)
 
         try:
+            # JMB: SLEEP TO AVOID TRIPPING DOS DEFENSES
+            if self.delay:
+                time.sleep(self.delay)
             resp = await self.session.get(url, **self.http_request_options)  # await response
         except Exception as exc:
             # on any exception mark url as BAD
