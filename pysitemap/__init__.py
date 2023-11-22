@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 def crawler(
     root_url, out_file, out_format='xml', maxtasks=100,
     exclude_urls=None, http_request_options=None,
-    parser=None
+    parser=None, delay=0
 ):
     """
     run crowler
@@ -20,7 +20,7 @@ def crawler(
     """
     loop = asyncio.get_event_loop()
     c = Crawler(
-        root_url, out_file=out_file, out_format=out_format, maxtasks=maxtasks, http_request_options=http_request_options
+        root_url, out_file=out_file, out_format=out_format, maxtasks=maxtasks, http_request_options=http_request_options, delay=delay
     )
     
     if parser is not None:
