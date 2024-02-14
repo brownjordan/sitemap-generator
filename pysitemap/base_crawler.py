@@ -111,26 +111,34 @@ class Crawler:
         self.todo_queue.remove(url)
         self.busy.add(url)
 
-        try:
-            # JMB: SLEEP TO AVOID TRIPPING DOS DEFENSES
-            if self.delay:
-                time.sleep(self.delay)
-            resp = await self.session.get(url, **self.http_request_options)  # await response
-        except Exception as exc:
-            # on any exception mark url as BAD
-            print('...', url, 'has error', repr(str(exc)))
-            self.done[url] = False
-        else:
-            # only url with status == 200 and content type == 'text/html' parsed
-            if (resp.status == 200 and
-                    ('text/html' in resp.headers.get('content-type'))):
-                data = (await resp.read()).decode('utf-8', 'replace')
-                urls = self.parser.parse(data)
-                asyncio.Task(self.addurls([(u, url) for u in urls]))
+        MAX_RETRIES = 10
+        retries = 0
+        while retries < MAX_RETRIES:
+            retries += 1
+            print("- -trying:", str(retries))
+            try:
+                # JMB: SLEEP TO AVOID TRIPPING DOS DEFENSES
+                if self.delay:
+                    time.sleep(self.delay)
+                resp = await self.session.get(url, **self.http_request_options)  # await response
+            
+                # only url with status == 200 and content type == 'text/html' parsed
+                if (resp.status == 200 and
+                        ('text/html' in resp.headers.get('content-type'))):
+                    data = (await resp.read()).decode('utf-8', 'replace')
+                    urls = self.parser.parse(data)
+                    asyncio.Task(self.addurls([(u, url) for u in urls]))
 
-            # even if we have no exception, we can mark url as good
-            resp.close()
-            self.done[url] = True
+                # even if we have no exception, we can mark url as good
+                resp.close()
+                self.done[url] = True
+                break
+            except Exception as exc:
+                # on any exception mark url as BAD
+                print('...', url, 'has error', repr(str(exc)))
+                if retries == MAX_RETRIES:
+                    print("-- max retries")
+                    self.done[url] = False
 
         self.busy.remove(url)
         logging.info(len(self.done), 'completed tasks,', len(self.tasks),
